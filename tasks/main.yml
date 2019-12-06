@@ -1,9 +1,11 @@
 ---
-- include_tasks: setup-RedHat.yml
-  when: ansible_os_family == 'RedHat'
+# - include_tasks: setup-RedHat.yml
+#   when: ansible_os_family == 'RedHat'
 
-- include_tasks: setup-Debian.yml
-  when: ansible_os_family == 'Debian'
+# - include_tasks: setup-Debian.yml
+#   when: ansible_os_family == 'Debian'
+
+- include_tasks: docker-table-changes.yml
 
 - name: Install Docker.
   package:
@@ -25,3 +27,6 @@
 
 - include_tasks: docker-users.yml
   when: docker_users | length > 0
+
+- name: pull hello-world
+  shell: docker pull hello-world

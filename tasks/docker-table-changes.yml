@@ -1,0 +1,62 @@
+---
+############################# Daemon file  
+- name: Creates directory Tmp
+  file:
+    path: "/tmp/etc/docker/"
+    state: directory
+
+- name: Creates directory Actual
+  file:
+    path: "/etc/docker/"
+    state: directory
+
+- name: Populate clusters
+  set_fact:
+    daemon_json: >-
+      {
+        {%- if docker_registry_mirror is defined -%}"registry-mirrors": ["{{ docker_registry_mirror | default("") }}"],{%- endif -%}
+        {%- if docker_internal_install is defined -%}"iptables": {{ docker_internal_install }},{%- endif -%}
+        "exec-opts": ["native.cgroupdriver=systemd"],
+        "log-driver": "json-file",
+        "log-opts": {
+            "max-size": "100m"
+        },
+        "storage-driver": "overlay2"
+      }
+
+- name: Copy Tmp Test (always copy to tmp)
+  become: yes
+  copy:
+    force: yes
+    dest: "/tmp/etc/docker/daemon.json"
+    content: "{{ daemon_json }}"
+  register: copy_tmp_file
+
+- name: Stat Tmp
+  become: yes
+  stat:
+    path: "/tmp/etc/docker/daemon.json"
+    checksum_algorithm: sha1
+  register: tmp_stat
+
+- name: Stat Tmp
+  become: yes
+  stat:
+    path: "/etc/docker/daemon.json"
+    checksum_algorithm: sha1
+  register: actual_stat
+
+- name: 
+  copy:
+    src: "/tmp/etc/docker/daemon.json"
+    dest: "/etc/docker/daemon.json"
+    remote_src: yes
+  when: (actual_stat.stat.exists == False) or (tmp_stat.stat.checksum != actual_stat.stat.checksum)
+############################# Daemon file  
+
+- name: Default Network forward to UFW
+  shell: sed -i -e 's/DEFAULT_FORWARD_POLICY="DROP"/DEFAULT_FORWARD_POLICY="ACCEPT"/g' /etc/default/ufw
+  when: docker_internal_install == false
+- name: NAT docker rules
+  shell: iptables -t nat -A POSTROUTING ! -o docker0 -s 172.17.0.0/16 -j MASQUERADE
+  when: docker_internal_install == false
